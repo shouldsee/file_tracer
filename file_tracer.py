@@ -14,8 +14,17 @@ import copy
 from collections import OrderedDict as _dict
 
 import warnings
-from pipedata._ast_util import ast_proj
-from pipedata._util import frame_default
+from _ast_util import ast_proj
+
+def frame_default(frame=None):
+    '''
+    return the calling frame unless specified
+    '''
+    if frame is None:
+        frame = inspect.currentframe().f_back.f_back ####parent of caller by default
+    else:
+        pass    
+    return frame
 def tree_as_string(d):
     if len(d)!=1:
         d=dict(ROOT=d)
@@ -77,6 +86,7 @@ class File(Path):
     def addTimeStamp(self):
         self.stat_result = res = os_stat_safe(self)
         self.stamp = (res.st_mtime, res.st_size)
+        return self
 
     def replace(self,k,v):
         return File(super(File,self).replace(k,v))
@@ -102,7 +112,7 @@ class FileObject(object):
         return set([x for x in self.all_files if isinstance(x,OutputFile)])
     @property
     def input_files(self):
-        return set([x for x in self.all_files if isinstance(x,InputFile)]) - {InputFile(x) for x in self.output_files}
+        return set([x for x in self.all_files if isinstance(x,InputFile)]) - {InputFile(x).addTimeStamp() for x in self.output_files}
 
 class FileSet(set,FileObject):
 

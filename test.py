@@ -27,18 +27,16 @@ v.addTimeStamp()
 print(hash(v))
 print (hash(vout))
 print(v==vout)
-# import 
-# print hash(tuple(vars(v).items()))
-# print hash(tuple(vars(vout).items()))
-# print hash(vars(vout))
 
-tracer.clear()
 
 with open(InputFile('input1.html'),'w') as f:
     f.write('123')
 with open(InputFile('input2.html'),'w') as f:
     f.write('abc')
 
+print("-"*50)
+###################### TESTING  simple scenario
+tracer.clear()
 def readInput(x):
     with open((x),'r') as f:
         return f.read()
@@ -50,9 +48,6 @@ def dumpOutput(x):
     s = middleStep(x)
     d = Counter(s)
     fn = OutputFile(x+'.count')
-    with open(InputFile('input2.html'),'r') as f:
-        pass
-    # with open
     with open(fn,'w') as f:
         map(f.write,[str(x) for x in d.items()])
     return 
@@ -63,24 +58,13 @@ def main():
     # dumpOutput(InputFile('input2.html'))
 
 tracer(main)
-print(tracer.byFunc)
-print(tracer.byFunc.keys())
-# x,y = tracer.byFunc.keys()
-# print(x==y,x.__code__ == y.__code__)
-# print main in (tracer.byFunc.keys())
+assert tracer.byFunc[main].output_files == {OutputFile(u'input1.html.count').addTimeStamp()},tracer.byFunc[main].output_files
+assert tracer.byFunc[main].input_files == {InputFile(u'input1.html').addTimeStamp()},tracer.byFunc[main].input_files
 
-# print tracer.lastCall
-if 0:
-    assert tracer.byFunc[main].output_files == {OutputFile(u'input1.html.count')},tracer.byFunc[main]
-    assert tracer.byFunc[main].input_files == {InputFile(u'input1.html')},tracer.byFunc[main]
+assert tracer.output_files == {OutputFile(u'input1.html.count').addTimeStamp()},tracer.output_files
+assert tracer.input_files == {InputFile(u'input1.html').addTimeStamp()},tracer.input_files
 
-    assert tracer.output_files == {OutputFile(u'input1.html.count')},tracer.output_files
-    assert tracer.input_files == {InputFile(u'input1.html')},tracer.input_files
 
-    print tracer.timeStampDict
-# for rec in tracer.byFunc.items():
-#     print rec
-# print(tracer.byFunc)
 def main():
     dumpOutput(InputFile('input1.html'))
 
@@ -89,9 +73,20 @@ tracer(main)
 assert main not in tracer.byFunc
 
 
+
 print("-"*50)
 tracer.clear()
 tracer.DEBUG=1
+def dumpOutput(x):
+    s = middleStep(x)
+    d = Counter(s)
+    fn = OutputFile(x+'.count')
+    with open(InputFile('input2.html'),'r') as f:
+        pass
+    # with open
+    with open(fn,'w') as f:
+        map(f.write,[str(x) for x in d.items()])
+    return 
 dumpOutput = tracer.cache(dumpOutput)
 def main():
     dumpOutput(InputFile('input1.html'))
