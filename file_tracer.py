@@ -4,17 +4,24 @@ from path import Path
 import path
 import sys
 import trace
-from collections import defaultdict
 import asciitree
 from asciitree.drawing import BOX_DOUBLE
+
 import decorator
-import dill
+# import dill
+import pickle as dill
 import inspect
 import copy
-from collections import OrderedDict as _dict
 
+from collections import defaultdict
+from collections import OrderedDict as _dict#
+# from collections import namedtuple
+import collections
+
+import logging
 import warnings
 from _ast_util import ast_proj
+# import linecache
 
 def frame_default(frame=None):
     '''
@@ -136,9 +143,18 @@ class FileSetDict(dict,FileObject):
             [x for x in self.values() if isinstance(x,FileSet)],set())
     
 
-
-
+# print(__name__,)
+# logger = logging.getLogger('FileTracer',)
+logger = logging.getLogger(__name__,)
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+logger.addHandler(handler)
+# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+FunctionInput = collections.namedtuple('FunctionInput',['args','keywords','argValues','sortedKeywordValues'])
 class FileTracer(FileObject,object):
+    logger = logger
     class UsingCacheWarning(RuntimeWarning):
         pass
     class RecalcWarning(RuntimeWarning):
@@ -150,7 +166,10 @@ class FileTracer(FileObject,object):
         # self.data = s or set()
         # self.all_files = set()
         self.clear()
-    def __call__(self, func, *a,**kw):
+
+    def __call__(self,*a,**kw):
+        return self.run(*a,**kw)
+    def run(self, func, *a,**kw):
         sys.settrace(self.trace_calls)
         result = func(*a,**kw)
         sys.settrace(None)
@@ -161,6 +180,11 @@ class FileTracer(FileObject,object):
         self.byFiles = dict()
         self.lastCall = dict()
         self.byAst = dict()
+    @property
+    def fileSetByFunc(self):
+        return {k:v[0] for k,v in self.byFunc.items()}
+        # self.fileSetbyFunc = dict()
+
     @property
     def byFuncCode(self):
         return {k.__code__:v for k,v in self.byFunc.items()}
@@ -187,84 +211,95 @@ class FileTracer(FileObject,object):
                 # self.byFiles[str(x)] = x
     @property
     def all_files(self):
-        return reduce(lambda x,y: x|y, [x.all_files for x in self.byFunc.values()], set())
+        return reduce(lambda x,y: x|y, [x.all_files for x in self.fileSetByFunc.values()], set())
 
     def cache(self,func):
         @decorator.decorator
         def dec(f, *a,**kw):
             (args, varargs, keywords, defaults) = inspect.getargspec(f)
-            _kw = tuple(args) + tuple(a) + tuple(sorted(kw.items()))
+            _kw = FunctionInput(tuple(args or ()),tuple(keywords or ()), tuple(a), tuple(sorted(kw.items())))
+            # _kw = tuple(args) + tuple(a) + tuple(keywords  or ())+ tuple(sorted(kw.items()))
             assert '_FileSet' not in kw,(f,f.func_code)
             assert '_FileSet' not in args,(f,f.func_code)
             _hash = dill.dumps
+            # _hash = lambda x:
+
+            def _hash(x):
+                s = dill.dumps(x);
+                dill.loads(s)
+                # print(len(s.split('\n')))
+                # print(collections.Counter(s)['\n'])
+                # print('\n' in s[:-1])
+                return s
             _fileSetKey = _hash(_kw)
 
-            data = dataByAst
+            fileSetData , returnedData = dataByAst
             "old_file_set contains file touched during last run"
             _f = frame_default(None).f_back
             msg = (_f.f_lineno, _f.f_code)            
             using_cache =0 
-            if _fileSetKey not in data:
+            if _fileSetKey not in fileSetData:
                 firstRun = True
                 # new_file_set = FileSet()
             else:
                 firstRun = False
-                new_file_set = data[_fileSetKey]
+                new_file_set = fileSetData[_fileSetKey]
 
                 "_oldKey is meaningless if firstRun"
-                _oldKey = (_fileSetKey, _hash(new_file_set))
+                # _oldKey = (_fileSetKey, _hash(new_file_set))
+                _oldKey = ''.join((_fileSetKey,_hash(new_file_set)))
                 if self.DEBUG>=2:
                     for x in new_file_set:
                         print(str(x),x.stamp[0],x.__class__,)
 
                 new_file_set.addTimeStamp()
-                _newKey = (_fileSetKey, _hash(new_file_set))
+                _newKey = ''.join((_fileSetKey,_hash(new_file_set)))
                 if self.DEBUG>=2:
                     for x in new_file_set:
                         print(str(x),x.stamp[0],x.__class__,)
                 # _newKey = tuple((k,hash(v)) for k,v in _kw.items())                
                  ### record to be deleted
                 # _oldValue = data[_oldKey] ### capture error
-                if _oldKey not in data:
-                    self._throw_debug_exception(_oldKey, data)
+                if _oldKey not in returnedData:
+                    self._throw_debug_exception(_oldKey, returnedData)
                     assert 0, msg
 
                 if _newKey == _oldKey:
-                    if self.DEBUG:
-                        warnings.warn(self.UsingCacheWarning("[USING_CAHCE]%s"%list(msg)))
-                    # print("[USING_CAHCE]%s"%list(msg))
-                    value =  data[_oldKey]
+                    self.logger.info(self.FirstRunWarning("[USING_CACHE]%s"%list(msg)))
+                    value =  returnedData[_oldKey]
                     using_cache = 1
 
             if not using_cache:
                 if firstRun:
-                    if self.DEBUG:
-                        warnings.warn(self.FirstRunWarning("[FIRST_RUN]%s"%list(msg)))
-                    # print("[FIRSTRUN]")
+                    self.logger.info(self.FirstRunWarning("[FIRST_RUN]%s"%list(msg)))
                 else:
-                    if self.DEBUG:
-                        warnings.warn(self.RecalcWarning("[RECALC]%s"%list(msg)))
-                    # print("[RECALC]")
+                    self.logger.info(self.FirstRunWarning("[RECALC]%s"%list(msg)))
 
                 "timestamp or argument changed, reexecute and remove old record"
                 "recapture FileSet"
                 self.lastCall[f.__code__] = new_file_set =  FileSet()
                 value = f(*a,**kw)            
                 new_file_set.addTimeStamp()
-                data[_fileSetKey] = new_file_set
+                fileSetData[ _fileSetKey ] = new_file_set
                 #### reuse _fileSetKey avoids mutation in _kw
-                _newKey = (_fileSetKey, _hash(new_file_set))
-                data.pop(_oldKey,None) if not firstRun else None
-                # print(_newKey,'-'*10)
-                data[_newKey] = value 
+                # _newKey = (_fileSetKey, _hash(new_file_set))
+                _newKey = ''.join((_fileSetKey,_hash(new_file_set)))
+                returnedData.pop(_oldKey,None) if not firstRun else None
+                returnedData[_newKey] = value 
 
             return value
 
+        # linecache.checkcache(func.func_code.co_filename)
+        # dataByAst = self.byAst.setdefault(
+        #     ast_proj(inspect.getsource(func)),
+        #     FileSetDict())
         dataByAst = self.byAst.setdefault(
-            ast_proj(inspect.getsource(func)),
-            FileSetDict())
+            func.func_code,
+            # ast_proj(inspect.getsource(func)),
+            (FileSetDict(), FileSetDict()) )
         gunc = dec(func)
         gunc.__name__ = gunc.__name__ + '_decorated'
+        # self.fileSetbyFunc[gunc] = dataByAst[0]
         self.byFunc[gunc] = dataByAst
         return gunc
 
