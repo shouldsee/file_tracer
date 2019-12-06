@@ -2,6 +2,19 @@
 
 1. FileTracer: A utility object to trace file interaction with time/size-stamping
 
+Traditional caching [(1)](https://github.com/python/cpython/blob/30afc91f5e70cf4748ffac77a419ba69ebca6f6a/Lib/functools.py#L485),[(2)](https://stackoverflow.com/a/49883466/8083313) works by capturing function arguments, which 
+is in-adequate if the function reads and outputs to a external file.
+**FileTracer** seeks to capture file depedency by following 
+two custom classes `file_tracer.InputFile()` and `file_tracer.OutputFile()`.
+Upon detection, files are stored for this particular function call, so
+that further function call would recaculate if any file is modified e.g.:
+by removal of a output file.
+
+Notes:
+  - this package has not yet been optimised for speed yet.
+  
+
+
 ```python
 
 import collections
