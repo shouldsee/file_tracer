@@ -173,9 +173,11 @@ class FileTracer(FileObject,object):
         # self.data = s or set()
         # self.all_files = set()
         self.file = os.path.realpath(
-            inspect.getfile(frame_default(frame))+'.pickle'
+            inspect.getfile(frame_default(frame))+'.pkl'
+            # inspect.getmodule(frame_default(frame)).__path__+'.pickle'
             )
-        # assert 0,sef
+        # self.file = inspect.stack()[-1][1]
+        # assert 0,self.file
             # frame_default(frame).f_back.f_locals['__file__']+'.pickle')
         self.clear(frame_default(frame))
         try:
