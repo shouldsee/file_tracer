@@ -1,9 +1,4 @@
 
-
-1. FileTracer: A utility object to trace file interaction with time/size-stamping
-
-```python
-
 import collections
 import time
 from file_tracer import InputFile,OutputFile,FileTracer
@@ -47,5 +42,3 @@ with Path('build').makedirs_p():
 #2019-12-06 00:08:21,139 - INFO - [RECALC][34, <code object main at 0x7fdbffc29030, file "example.py", line 28>]
 #2019-12-06 00:08:21,177 - INFO - [USING_CACHE][35, <code object main at 0x7fdbffc29030, file "example.py", line 28>]
 #2019-12-06 00:08:21,179 - INFO - [FIRST_RUN][36, <code object main at 0x7fdbffc29030, file "example.py", line 28>]
-
-```

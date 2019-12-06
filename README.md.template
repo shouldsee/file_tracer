@@ -1,0 +1,7 @@
+
+
+1. FileTracer: A utility object to trace file interaction with time/size-stamping
+
+```python
+{{_open('example.py').read()}}
+```
