@@ -59,23 +59,26 @@ class BaseCase(unittest2.TestCase,SharedObject):
     def test_simple(self):
         # with self.DIR:
         tracer = FileTracer()
+        # tracer.clear()
  
         @tracer.cache
         def main():
             dumpOutput(InputFile('input1.html'))
         
         tracer(main)
-        assert tracer.fileSetByFunc[main].output_files == {OutputFile(u'input1.html.count').addTimeStamp()},tracer.fileSetByFunc[main].output_files
-        assert tracer.fileSetByFunc[main].input_files == {InputFile(u'input1.html').addTimeStamp()},tracer.fileSetByFunc[main].input_files
+        # assert tracer.fileSetByFunc)main].output_files == {OutputFile(u'input1.html.count').addTimeStamp()},tracer.fileSetByFunc[main].output_files
+        assert tracer.getFileSetByFunc(main).output_files == {OutputFile(u'input1.html.count').addTimeStamp()},tracer.fileSetByFunc[main].output_files
+        assert tracer.getFileSetByFunc(main).input_files == {InputFile(u'input1.html').addTimeStamp()},tracer.fileSetByFunc[main].input_files
 
-        assert tracer.output_files == {OutputFile(u'input1.html.count').addTimeStamp()},tracer.output_files
-        assert tracer.input_files == {InputFile(u'input1.html').addTimeStamp()},tracer.input_files
+        # assert tracer.output_files == {OutputFile(u'input1.html.count').addTimeStamp()},tracer.output_files
+        # assert tracer.input_files == {InputFile(u'input1.html').addTimeStamp()},tracer.input_files
 
         tracer.clear()
         assert main not in tracer.byFunc
 
     def test_log(self):
         tracer = FileTracer() 
+        tracer.clear()
         # with self.DIR:
         @tracer.cache
         def dumpOutput(x):
@@ -136,6 +139,7 @@ class BaseCase(unittest2.TestCase,SharedObject):
         #### pass pickle if file not read
         # tracer = dill.loads(tracerString)
         tracer = FileTracer()  ## start from fresh
+        tracer.clear()
         dumpOutput = dumpOutput._origin
         dumpOutput = tracer.cache(dumpOutput)
         with self.assertLogs('file_tracer',level='INFO') as logs:

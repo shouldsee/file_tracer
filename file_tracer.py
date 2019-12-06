@@ -8,8 +8,9 @@ import asciitree
 from asciitree.drawing import BOX_DOUBLE
 
 import decorator
+import dill
+# import pickle as dill
 # import dill
-import pickle as dill
 import inspect
 import copy
 from collections import defaultdict
@@ -157,6 +158,8 @@ logger.addHandler(handler)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 FunctionInput = collections.namedtuple('FunctionInput',['args','keywords','argValues','sortedKeywordValues'])
+def getFuncId(func):
+    return func.__code__
 class FileTracer(FileObject,object):
     logger = logger
     class UsingCacheWarning(RuntimeWarning):
@@ -175,17 +178,25 @@ class FileTracer(FileObject,object):
         # assert 0,sef
             # frame_default(frame).f_back.f_locals['__file__']+'.pickle')
         self.clear(frame_default(frame))
+        try:
+            with open(self.file,'rb') as f:
+                d = dill.load(f)
+                self.__dict__ = d.__dict__
+                # self.__setstate__(d.__dict__)
+        except Exception as e:
+            warnings.warn(str(e))
 
     def __call__(self,*a,**kw):
         return self.run(*a,**kw)
 
+    # def __getstate__(self):
+    #     d = self.__dict__.copy()
+    #     # d['code2func'] = {}
+    #     # del d['code2func']
+    #     return d 
+
     def run(self, func, *a,**kw):
-        try:
-            with open(self.file,'rb') as f:
-                d = dill.load(f)
-                self.__setstate__(d.__dict__)
-        except Exception as e:
-            warnings.warn(str(e))
+
 
         sys.settrace(self.trace_calls)
         result = func(*a,**kw)
@@ -197,7 +208,7 @@ class FileTracer(FileObject,object):
         except Exception as e:
             warnings.warn(str(e))
         return result
-        
+
     def clear(self, frame=None):
         self.byFuncCode = dict()
         self.code2func = dict()
@@ -208,10 +219,13 @@ class FileTracer(FileObject,object):
     @property
     def fileSetByFunc(self):
         return {k:v[0] for k,v in self.byFunc.items()}
+    def getFileSetByFunc(self,func):
+        return self.byFuncCode[getFuncId(func._origin)][0]
     @property
     def byFunc(self):
         return {self.code2func[k]:v for k,v in self.byFuncCode.items()}
-
+    def getFuncCache(self,func):
+        return self.byFuncCode[getFuncId(func._origin)]
     # @property
     # def byFuncCode(self):
     #     return {k.__code__:v for k,v in self.byFunc.items()}
@@ -334,7 +348,8 @@ class FileTracer(FileObject,object):
         #     ast_proj(inspect.getsource(func)),
         #     FileSetDict())
         dataByFunc = self.byFuncCode.setdefault(
-            func.__code__,
+            getFuncId(func),
+            # .__code__.co_code,
             # func.func_code,
             # ast_proj(inspect.getsource(func)),
             (FileSetDict(), FileSetDict()) )
@@ -342,7 +357,7 @@ class FileTracer(FileObject,object):
         gunc.__name__ = gunc.__name__ + '_decorated'
         gunc._origin = func
         # self.fileSetbyFunc[gunc] = dataByAst[0]
-        self.code2func[func.__code__] = gunc
+        self.code2func[getFuncId(func)] = gunc
         # self.func2code[gunc] = (func,func.__code__)
         # self.byFunc[gunc] = dataByFunc
 
