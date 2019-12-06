@@ -1,4 +1,7 @@
-import unittest2
+try:
+    import unittest2
+except:
+    import unittest as unittest2
 
 from file_tracer import InputFile, OutputFile, FileTracer,FileSetDict
 import time
@@ -111,14 +114,14 @@ class BaseCase(unittest2.TestCase,SharedObject):
             self.assertRegex(logText, reg)
         # dill.loads(tracer.fileSetByFunc.values()[0])
         for k,fileSetDict in tracer.fileSetByFunc.items():
-            print k
-            print fileSetDict.input_files
-            print fileSetDict.output_files
+            print (k)
+            print (fileSetDict.input_files)
+            print (fileSetDict.output_files)
             for _k , fsd in fileSetDict.items():
-                print '-'*50
-                print dill.loads(_k)
-                print fsd.input_files
-                print fsd.output_files
+                print ('-'*50)
+                print (dill.loads(_k))
+                print (fsd.input_files)
+                print (fsd.output_files)
 
         pass
 import pdb

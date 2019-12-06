@@ -1,9 +1,9 @@
-import os
-
+from functools import reduce
+import os,sys
 from path import Path
 import path
 import sys
-import trace
+# import trace
 import asciitree
 from asciitree.drawing import BOX_DOUBLE
 
@@ -12,7 +12,6 @@ import decorator
 import pickle as dill
 import inspect
 import copy
-
 from collections import defaultdict
 from collections import OrderedDict as _dict#
 # from collections import namedtuple
@@ -247,13 +246,13 @@ class FileTracer(FileObject,object):
 
                 "_oldKey is meaningless if firstRun"
                 # _oldKey = (_fileSetKey, _hash(new_file_set))
-                _oldKey = ''.join((_fileSetKey,_hash(new_file_set)))
+                _oldKey = b''.join((_fileSetKey,_hash(new_file_set)))
                 if self.DEBUG>=2:
                     for x in new_file_set:
                         print(str(x),x.stamp[0],x.__class__,)
 
                 new_file_set.addTimeStamp()
-                _newKey = ''.join((_fileSetKey,_hash(new_file_set)))
+                _newKey = b''.join((_fileSetKey,_hash(new_file_set)))
                 if self.DEBUG>=2:
                     for x in new_file_set:
                         print(str(x),x.stamp[0],x.__class__,)
@@ -283,7 +282,7 @@ class FileTracer(FileObject,object):
                 fileSetData[ _fileSetKey ] = new_file_set
                 #### reuse _fileSetKey avoids mutation in _kw
                 # _newKey = (_fileSetKey, _hash(new_file_set))
-                _newKey = ''.join((_fileSetKey,_hash(new_file_set)))
+                _newKey = b''.join((_fileSetKey,_hash(new_file_set)))
                 returnedData.pop(_oldKey,None) if not firstRun else None
                 returnedData[_newKey] = value 
 
@@ -294,7 +293,8 @@ class FileTracer(FileObject,object):
         #     ast_proj(inspect.getsource(func)),
         #     FileSetDict())
         dataByAst = self.byAst.setdefault(
-            func.func_code,
+            func.__code__,
+            # func.func_code,
             # ast_proj(inspect.getsource(func)),
             (FileSetDict(), FileSetDict()) )
         gunc = dec(func)
