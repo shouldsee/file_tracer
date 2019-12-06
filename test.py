@@ -1,7 +1,7 @@
-try:
-    import unittest2
-except:
-    import unittest as unittest2
+# try:
+import unittest2
+# except:
+    # import unittest as unittest2
 
 from file_tracer import InputFile, OutputFile, FileTracer,FileSetDict
 import time
