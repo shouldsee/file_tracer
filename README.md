@@ -37,14 +37,12 @@ with Path('build').makedirs_p():
 		s = readInput(x)
 		d = collections.Counter(s)
 		fn = OutputFile(x+'.count')
-
 		### merely referencing the file is enough to log dependency
 		with open(InputFile('input2.html'),'r') as f:
 		    pass
-		# with open
 		with open(fn,'w') as f:
 		    map(f.write,[str(x) for x in d.items()])        
-	    # assert 0
+
 	def main():            
 		dumpOutput(InputFile('input1.html'))  ## first_run
 		time.sleep(0.02) 
