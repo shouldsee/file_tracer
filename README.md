@@ -13,8 +13,13 @@ by removal of a output file.
 Notes:
   - this package has not yet been optimised for speed yet.
   
+1. Install:
 
+```
+pip install https://github.com/shouldsee/file_tracer/tarball/master
+```
 
+1. Example
 ```python
 
 import collections

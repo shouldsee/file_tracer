@@ -97,7 +97,10 @@ class File(Path):
     def replace(self,k,v):
         return File(super(File,self).replace(k,v))
     def __hash__(self):
-        return hash((Path.__hash__(self),self.stamp))
+        # return hash(tuple(sorted(vars(self).items())))
+        return hash((Path.__hash__(self), self.stamp))
+        # return hash((Path.__hash__(self),self.stamp))
+
     def __eq__(self, other):
         return (self.__class__ == other.__class__) and str(self)==str(other)
         # hash(self)==hash(other)
@@ -126,7 +129,9 @@ class FileSet(set,FileObject):
     def all_files(self):
         return self
     def __hash__(self):
-        return hash(frozenset(self))
+        return hash(tuple(sorted(list(self))))
+        # return hash( hash(x) for x in (self))
+        # return hash(frozenset(self))
     # @property
     # def output_files(self):
     #     return set([x for x in self.all_files if isinstance(x,OutputFile)])
@@ -161,32 +166,55 @@ class FileTracer(FileObject,object):
     class FirstRunWarning(RuntimeWarning):
         pass
     DEBUG = 0
-    def __init__(self, s = None):
+    def __init__(self, s = None, frame=None):
         # self.data = s or set()
         # self.all_files = set()
-        self.clear()
+        self.file = os.path.realpath(
+            inspect.getfile(frame_default(frame))+'.pickle'
+            )
+        # assert 0,sef
+            # frame_default(frame).f_back.f_locals['__file__']+'.pickle')
+        self.clear(frame_default(frame))
 
     def __call__(self,*a,**kw):
         return self.run(*a,**kw)
+
     def run(self, func, *a,**kw):
+        try:
+            with open(self.file,'rb') as f:
+                d = dill.load(f)
+                self.__setstate__(d.__dict__)
+        except Exception as e:
+            warnings.warn(str(e))
+
         sys.settrace(self.trace_calls)
         result = func(*a,**kw)
         sys.settrace(None)
+
+        try:
+            with open(self.file,'wb') as f:
+                dill.dump(self,f)
+        except Exception as e:
+            warnings.warn(str(e))
         return result
-    def clear(self):
-        self.data = dict()
-        self.byFunc = dict()
-        self.byFiles = dict()
+        
+    def clear(self, frame=None):
+        self.byFuncCode = dict()
+        self.code2func = dict()
         self.lastCall = dict()
-        self.byAst = dict()
+    # def __setstate__
+        # self.byAst = dict()
+
     @property
     def fileSetByFunc(self):
         return {k:v[0] for k,v in self.byFunc.items()}
-        # self.fileSetbyFunc = dict()
-
     @property
-    def byFuncCode(self):
-        return {k.__code__:v for k,v in self.byFunc.items()}
+    def byFunc(self):
+        return {self.code2func[k]:v for k,v in self.byFuncCode.items()}
+
+    # @property
+    # def byFuncCode(self):
+    #     return {k.__code__:v for k,v in self.byFunc.items()}
 
     def trace_calls(self, frame, event, arg):
         frame0 = frame
@@ -205,9 +233,7 @@ class FileTracer(FileObject,object):
         for x in frame0.f_locals.values():
             if isinstance(x,File):
                 [s.add(x) for s in sets]
-                # self.all_files.add(x)
-                # print (x,frame.f_code)
-                # self.byFiles[str(x)] = x
+
     @property
     def all_files(self):
         return reduce(lambda x,y: x|y, [x.all_files for x in self.fileSetByFunc.values()], set())
@@ -221,24 +247,33 @@ class FileTracer(FileObject,object):
             assert '_FileSet' not in kw,(f,f.func_code)
             assert '_FileSet' not in args,(f,f.func_code)
             _hash = dill.dumps
+            # if DEBUG:
+            # _hash = lambda x: bytes("%020d"%abs(hash(x))) +b'x'
+            _hash = lambda x:bytes(hash(x))
             # _hash = lambda x:
 
-            def _hash(x):
-                s = dill.dumps(x);
-                dill.loads(s)
-                # print(len(s.split('\n')))
-                # print(collections.Counter(s)['\n'])
-                # print('\n' in s[:-1])
-                return s
+            # def _hash(x):
+            #### pickled object cannot be loaded correctly
+            #     s = dill.dumps(x);
+            #     dill.loads(s)
+            #     # print(len(s.split('\n')))
+            #     # print(collections.Counter(s)['\n'])
+            #     # print('\n' in s[:-1])
+            #     return s
+
             _fileSetKey = _hash(_kw)
 
-            fileSetData , returnedData = dataByAst
+            fileSetData , returnedData = dataByFunc
             "old_file_set contains file touched during last run"
             _f = frame_default(None).f_back
             msg = (_f.f_lineno, _f.f_code)            
             using_cache =0 
+            if self.DEBUG:
+                print()
             if _fileSetKey not in fileSetData:
                 firstRun = True
+                if self.DEBUG:
+                    print('[FIRST_RUN]')
                 # new_file_set = FileSet()
             else:
                 firstRun = False
@@ -259,6 +294,10 @@ class FileTracer(FileObject,object):
                 # _newKey = tuple((k,hash(v)) for k,v in _kw.items())                
                  ### record to be deleted
                 # _oldValue = data[_oldKey] ### capture error
+                if self.DEBUG>=2:
+                    print("[ACCES_OLD]%r"%_oldKey)
+                    print("[ACCES_NEW]%r"%_newKey)
+
                 if _oldKey not in returnedData:
                     self._throw_debug_exception(_oldKey, returnedData)
                     assert 0, msg
@@ -285,6 +324,8 @@ class FileTracer(FileObject,object):
                 _newKey = b''.join((_fileSetKey,_hash(new_file_set)))
                 returnedData.pop(_oldKey,None) if not firstRun else None
                 returnedData[_newKey] = value 
+                if self.DEBUG>=2:
+                    print("[ASSINGING]%r"%_newKey)
 
             return value
 
@@ -292,15 +333,19 @@ class FileTracer(FileObject,object):
         # dataByAst = self.byAst.setdefault(
         #     ast_proj(inspect.getsource(func)),
         #     FileSetDict())
-        dataByAst = self.byAst.setdefault(
+        dataByFunc = self.byFuncCode.setdefault(
             func.__code__,
             # func.func_code,
             # ast_proj(inspect.getsource(func)),
             (FileSetDict(), FileSetDict()) )
         gunc = dec(func)
         gunc.__name__ = gunc.__name__ + '_decorated'
+        gunc._origin = func
         # self.fileSetbyFunc[gunc] = dataByAst[0]
-        self.byFunc[gunc] = dataByAst
+        self.code2func[func.__code__] = gunc
+        # self.func2code[gunc] = (func,func.__code__)
+        # self.byFunc[gunc] = dataByFunc
+
         return gunc
 
     @property
@@ -351,128 +396,3 @@ class FileTracer(FileObject,object):
 --------------------------------------------------------------
 '''
 
-
-if 0:
-    import  decorator
-    @decorator.decorator
-    def Dye(f,*args,**kwargs):
-        p = Proxy()
-        args = get_file(args, p.hist)
-        kwargs = get_file(kwargs, p.hist)
-        res = f(*args,**kwargs)
-        return Proxy(res)
-
-    def get_file(ob, s):
-        if isinstance(ob,File):
-            s.add(ob)
-        elif isinstance(ob, Proxy):
-            s.update(ob.hist)
-            return ob.value
-        elif isinstance(ob,list):
-            return [get_file( _ob,s) for _ob in ob]
-        elif isinstance(ob,dict):
-            # dict([(k,v)])
-            d = dict()
-            for (k,v) in ob.items():
-                k = get_file(k,s)
-                v = get_file(v,s)
-                d[k] = v
-            return d
-        elif hasattr(ob,'_get_file'):
-            ob._get_file(s)
-        else:
-            print(('[SKIPPING]',type(ob,),ob))
-
-
-
-class Proxy(object):
-    def __init__(self, value=None):
-        self.value = value
-        self.hist = set()
-    def __call__(self):
-        return self.value
-
-
-class _Obsolete_FileTracer(object):
-    def __init__(self, s = None):
-        # self.data = s or set()
-        self.all_files = set()
-        self.data = dict()
-        self.byFunc = dict()
-        self.byFiles = dict()
-    def __call__(self, func, *a,**kw):
-        sys.settrace(self.trace_calls)
-        result = func(*a,**kw)
-        sys.settrace(None)
-        return result
-    def trace_calls(self, frame, event, arg):
-        print(path.__file__)
-        for x in frame.f_locals.values():
-            if isinstance(x,File):
-                self.all_files.add(x)
-                _f = frame
-                # if _f.f_code.co_filename== (path.__file__[:-1]):
-                if _f.f_code is Path.__init__.func_code:
-                   _f = _f.f_back
-                    # else:
-                    #     continue
-                else:
-                    print(_f.f_code,)
-                    pass
-                    # assert 0, _f.f_code
-                if isinstance(x,InputFile):
-                    _path = self.byFunc.setdefault(_f.f_code,{})
-                    _path[x] = {}
-                    while True:
-                        _fb = _f.f_back
-                        if _fb is None:
-                            break
-                        _d = self.byFunc.setdefault(_fb.f_code,{})
-                        _d[_f.f_code] = _path
-                        _path = _d
-                        _f = _f.f_back
-                    self.data[x] = _path
-                elif isinstance(x,OutputFile):
-                    self.byFunc.setdefault(_f.f_code,{})[x] = {}
-                    # self.byFiles.setdefault(x,{})[_f.f_code]={}
-                    self.byFiles.setdefault(x,[]).append(_f.f_code)
-                    # ]={}
-                    # .append(_f.f_code)
-    @property
-    def paths(self):
-        lst = []
-        i = 0
-        visited = set()
-        for outFile, fs in self.byFiles.iteritems():
-            for f in fs:
-                res = drill(self.byFunc[f],k=(f,))
-                for x in res:
-                    i+=1
-                    if isinstance(x[-1],InputFile):
-                    # if outFile is not x[-1]:
-                        lst.append((outFile,) + x)
-                        visited.add(x[-1])
-            visited.add(outFile)
-        for extra in self.all_files - visited:
-            if isinstance(extra,InputFile):
-                lst.append((None,extra))
-            elif isinstance(extra,OutputFile):
-                lst.append((extra,None))
-        return lst
-    @property
-    def output_input_pairs(self):
-        return [(x[0],x[-1]) for x in self.paths]
-    @property
-    def output_input_dict(self):
-        d = defaultdict(set)
-        for o,i in self.output_input_pairs:
-            d[o].add(i)
-        return d
-    
-
-    @property
-    def treeByOutput(self):
-        tr0 = tr = tree()
-        for _path in self.paths:
-            visitPath(tr,_path)
-        return tr

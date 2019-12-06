@@ -6,8 +6,9 @@ from path import Path
 import collections
 import os
 # import pickle
-import pickle as dill
-# import dill
+# import pickle as dill
+# import pi
+import dill
 __file__ = os.path.realpath(__file__)
 class SharedObject(object):
     DIR = Path('build').makedirs_p()
@@ -93,11 +94,14 @@ class BaseCase(unittest2.TestCase,SharedObject):
             dumpOutput(InputFile('input1.html'))
             time.sleep(0.02)
             with open('input2.html','w') as f: f.write('test111111111')
+            # assert 0
             dumpOutput(InputFile('input1.html'))
             dumpOutput(InputFile('input1.html'))
             dumpOutput(InputFile('input2.html'))
+        tracer.DEBUG=0
         with self.assertLogs('file_tracer',level='INFO') as logs:
             tracer.run(main)
+            # main()
         # logs.output
         regs = [
             'FIRST_RUN',
@@ -108,6 +112,7 @@ class BaseCase(unittest2.TestCase,SharedObject):
             ]
         for logText,reg in zip(logs.output,regs):
             pass
+            print (logText)
             self.assertRegex(logText, reg)
         # dill.loads(tracer.fileSetByFunc.values()[0])
         for k,fileSetDict in tracer.fileSetByFunc.items():
@@ -116,10 +121,41 @@ class BaseCase(unittest2.TestCase,SharedObject):
             print (fileSetDict.output_files)
             for _k , fsd in fileSetDict.items():
                 print ('-'*50)
-                print (dill.loads(_k))
+                print(repr(_k))
+                # print (dill.loads(_k))
                 print (fsd.input_files)
                 print (fsd.output_files)
 
+        # tracer = dill.loads(dill.dumps(tracer))
+        # dumpOutput = dumpOutput._origin
+        # dumpOutput = tracer.cache(dumpOutput)
+        return dill.dumps(tracer), dumpOutput, main
+    def test_loaded_run(self):
+        print('-'*100)
+        tracerString,dumpOutput,main = self.test_log()
+        #### pass pickle if file not read
+        # tracer = dill.loads(tracerString)
+        tracer = FileTracer()  ## start from fresh
+        dumpOutput = dumpOutput._origin
+        dumpOutput = tracer.cache(dumpOutput)
+        with self.assertLogs('file_tracer',level='INFO') as logs:
+            tracer.run(main)
+            # main()
+        regs = [
+            'USING_CACHE',
+            'USING_CACHE',
+            'RECALC',
+            'USING_CACHE',
+            'RECALC',
+            ]
+        for logText,reg in zip(logs.output,regs):
+            pass
+            print (logText)
+            self.assertRegex(logText, reg)        
+        # assert 0
+        # main()
+        # main()
+        # tracer.run(main)
         pass
 import pdb
 import traceback
