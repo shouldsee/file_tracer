@@ -9,6 +9,9 @@ from asciitree.drawing import BOX_DOUBLE
 
 import decorator
 import dill
+import pyhash
+hasher = pyhash.metro_64()
+# import hasher = pyhash.metro_64()
 # import pickle as dill
 # import dill
 import inspect
@@ -21,6 +24,7 @@ import collections
 import logging
 import warnings
 from _ast_util import ast_proj
+import numbers
 
 try:
     ## py2
@@ -28,7 +32,37 @@ try:
 except:
     ## py3
     unicode = str
-# import linecache
+
+
+def hash_tree(o):
+    '''
+    PY3 turns on hash randomisation by default. 
+    Here a deterministic hash function is used to replace default hash function
+
+    '''
+    if hasattr(o,'_hash'):
+        return o._hash()
+    elif isinstance(o,dict):
+        return hash_tree(tuple(sorted(o.items)))
+    elif isinstance(o,(bytes,str)):
+        return hasher(o)
+    elif isinstance(o, list):
+        return hash_tree(tuple(o))
+    elif isinstance(o, tuple):
+        return tuple.__hash__(tuple(map(hash_tree,o))) 
+    elif isinstance(o, numbers.Number):
+        return o
+    elif isinstance(o, frozenset):
+        return hash_tree(tuple(x for x in o))
+    elif isinstance(o,set):
+        return hash_tree(frozenset(o))
+    else:
+        assert 0,('Unable to hash',type(o),repr(o))
+# hash = 
+_hash = hash_tree
+# _hash = hash
+
+
 
 def frame_default(frame=None):
     '''
@@ -105,8 +139,11 @@ class File(Path):
     def replace(self,k,v):
         return File(super(File,self).replace(k,v))
     def __hash__(self):
+        return self._hash()
+    def _hash(self):
         # return hash(tuple(sorted(vars(self).items())))
-        return hash((Path.__hash__(self), self.stamp))
+        # return _hash((Path.__hash__(self), self.stamp))
+        return _hash((_hash(str(self)), self.stamp))
         # return hash((Path.__hash__(self),self.stamp))
 
     def __eq__(self, other):
@@ -167,6 +204,7 @@ handler.setFormatter(formatter)
 FunctionInput = collections.namedtuple('FunctionInput',[
     'func_code_co_code',
     'args','keywords','argValues','sortedKeywordValues'])
+
 def getFuncId(func):
     return func.__code__
 class FileTracer(FileObject,object):
@@ -202,15 +240,10 @@ class FileTracer(FileObject,object):
     def __call__(self,*a,**kw):
         return self.run(*a,**kw)
 
-    # def __getstate__(self):
-    #     d = self.__dict__.copy()
-    #     # d['code2func'] = {}
-    #     # del d['code2func']
-    #     return d 
+    def __len__(self):
+        return self.byFuncCode.__len__()
 
     def run(self, func, *a,**kw):
-
-
         sys.settrace(self.trace_calls)
         result = func(*a,**kw)
         sys.settrace(None)
@@ -280,7 +313,10 @@ class FileTracer(FileObject,object):
 
     @staticmethod
     def _hash(x):
-        return str( hash(x))
+        if isinstance(x,tuple):
+            return ',\n'.join([str( _hash(_x)) for _x in x])
+
+        return str(_hash(x))
         # _hash = 
         # if DEBUG:
         # _hash = lambda x: bytes("%020d"%abs(hash(x))) +b'x'
@@ -299,13 +335,18 @@ class FileTracer(FileObject,object):
         # return dill.dumps(x)
     @staticmethod
     def makeFunctionInput(f,a,kw):
+        # print('kw',kw,hash(tuple(sorted(kw.items()))))
         (args, varargs, keywords, defaults) = inspect.getargspec(f)
+        code = getattr(f,'_origin',f).__code__.co_code
+        # print((hash(code),code,))
         _kw = FunctionInput( 
             getattr(f,'_origin',f).__code__.co_code,
             tuple(args or ()),
             tuple(keywords or ()), 
             tuple(a), 
-            tuple(sorted(kw.items())))
+            # tuple(sorted({}.items())),
+            tuple(sorted(kw.items()))
+            )
         # _kw = tuple(args) + tuple(a) + tuple(keywords  or ())+ tuple(sorted(kw.items()))
         assert '_FileSet' not in kw,(f,f.__code__)
         assert '_FileSet' not in args,(f,f.__code__)
@@ -343,13 +384,13 @@ class FileTracer(FileObject,object):
 
                 "_oldKey is meaningless if firstRun"
                 # _oldKey = (_fileSetKey, _hash(new_file_set))
-                _oldKey = u''.join((_fileSetKey,_hash(new_file_set)))
+                _oldKey = u':'.join((_fileSetKey,_hash(new_file_set)))
                 if self.DEBUG>=2:
                     for x in new_file_set:
                         print(str(x),x.stamp[0],x.__class__,)
 
                 new_file_set.addTimeStamp()
-                _newKey = u''.join((_fileSetKey,_hash(new_file_set)))
+                _newKey = u':'.join((_fileSetKey,_hash(new_file_set)))
                 if self.DEBUG>=2:
                     for x in new_file_set:
                         print(str(x),x.stamp[0],x.__class__,)
@@ -367,8 +408,8 @@ class FileTracer(FileObject,object):
                     for k in list(returnedData.keys()):
                         print(('LIST_KEYS',k))
                     assert 0, msg
-                    self._throw_debug_exception(_oldKey, returnedData)
-                    assert 0, msg
+                    # self._throw_debug_exception(_oldKey, returnedData)
+                    # assert 0, msg
 
                 if _newKey == _oldKey:
                     self.logger.info(self.FirstRunWarning("[USING_CACHE]%s"%list(msg)))
@@ -389,36 +430,19 @@ class FileTracer(FileObject,object):
                 fileSetData[ _fileSetKey ] = new_file_set
                 #### reuse _fileSetKey avoids mutation in _kw
                 # _newKey = (_fileSetKey, _hash(new_file_set))
-                _newKey = u''.join((_fileSetKey,_hash(new_file_set)))
+                _newKey = u':'.join((_fileSetKey,_hash(new_file_set)))
                 returnedData.pop(_oldKey,None) if not firstRun else None
                 returnedData[_newKey] = value 
                 if self.DEBUG>=2:
-                    print("[ASSINGING]%r"%_newKey)
+                    print("[ASSIGNING]:---\n%s\n---"%_newKey)
             self.changed = not using_cache
-
-
             return value
 
-        # linecache.checkcache(func.func_code.co_filename)
-        # dataByAst = self.byAst.setdefault(
-        #     ast_proj(inspect.getsource(func)),
-        #     FileSetDict())
-
-        # dataByFunc = self.byFuncCode.setdefault(
-        #     getFuncId(func),
-        #     # .__code__.co_code,
-        #     # func.func_code,
-        #     # ast_proj(inspect.getsource(func)),
-        #     (FileSetDict(), FileSetDict()) )
 
         gunc = dec(func)
         gunc.__name__ = gunc.__name__ + '_decorated'
         gunc._origin = func
-        # self.fileSetbyFunc[gunc] = dataByAst[0]
         self.code2func[getFuncId(func)] = gunc
-        # self.func2code[gunc] = (func,func.__code__)
-        # self.byFunc[gunc] = dataByFunc
-
         return gunc
 
     @property

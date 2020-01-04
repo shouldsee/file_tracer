@@ -3,6 +3,7 @@ unittest2
 decorator
 path.py
 asciitree
+pyhash
 
 #dill
 #filelock

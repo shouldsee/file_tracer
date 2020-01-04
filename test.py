@@ -3,15 +3,23 @@ import unittest2
 from file_tracer import InputFile, OutputFile, FileTracer,FileSetDict
 import time
 from path import Path
+import path
 import collections
-import os
+import os,sys
 # import pickle
 # import pickle as dill
 # import pi
 import dill
+
+PY3 = sys.version.startswith('3.')
+if PY3:
+    from importlib import reload
+else:
+    pass
 __file__ = os.path.realpath(__file__)
+CDIR = path.Path(__file__).realpath().dirname()
 class SharedObject(object):
-    DIR = Path('build').makedirs_p()
+    DIR = Path('build').makedirs_p().realpath()
 
 def readInput(x):
     with open((x),'r') as f:
@@ -31,8 +39,22 @@ def dumpOutput(x):
 
     # pass
 
+import subprocess
 class BaseCase(unittest2.TestCase,SharedObject):
-    pass
+    def test_cache(self):
+        if PY3:
+            binary = 'python3'
+        else:
+            binary = 'python2'
+        subprocess.check_output(['rm','-f',CDIR/'test_cache.py.pkl'])
+        res0 = subprocess.check_output([binary,CDIR/'test_cache.py']).decode('utf8')
+        res = res0.splitlines()[-1]
+        print(res0)
+        assert res=='3',res0
+        res0 = subprocess.check_output([binary,CDIR/'test_cache.py']).decode('utf8')
+        res = res0.splitlines()[-1]
+        assert res=='3',res0
+
     def test_init(self):
         # with self.DIR:
         with open(InputFile('input1.html'),'w') as f:
