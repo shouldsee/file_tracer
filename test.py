@@ -7,9 +7,9 @@ import path
 import collections
 import os,sys
 # import pickle
-# import pickle as dill
+import pickle as dill
 # import pi
-import dill
+# import dill
 
 PY3 = sys.version.startswith('3.')
 if PY3:
@@ -140,6 +140,9 @@ class BaseCase(unittest2.TestCase,SharedObject):
             pass
             print (logText)
             self.assertRegex(logText, reg)
+        # return dill.dumps(tracer), dumpOutput, main
+        return (tracer), dumpOutput, main
+
         # dill.loads(tracer.fileSetByFunc.values()[0])
 
         # for k,fileSetDict in tracer.fileSetByFunc.items():
@@ -156,7 +159,6 @@ class BaseCase(unittest2.TestCase,SharedObject):
         # tracer = dill.loads(dill.dumps(tracer))
         # dumpOutput = dumpOutput._origin
         # dumpOutput = tracer.cache(dumpOutput)
-        return dill.dumps(tracer), dumpOutput, main
     def test_loaded_run(self):
         print('-'*100)
         tracerString,dumpOutput,main = self.test_log()
