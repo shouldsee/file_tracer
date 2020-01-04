@@ -1,6 +1,6 @@
+[![Build Status](https://travis-ci.com/shouldsee/file_tracer.svg?branch=master)](https://travis-ci.com/shouldsee/file_tracer)
 
-
-1. FileTracer: A utility object to trace file interaction with time/size-stamping
+### FileTracer: A utility object to trace file interaction with time/size-stamping 
 
 Traditional caching [(1)](https://github.com/python/cpython/blob/30afc91f5e70cf4748ffac77a419ba69ebca6f6a/Lib/functools.py#L485),[(2)](https://stackoverflow.com/a/49883466/8083313) works by capturing function arguments, which 
 is in-adequate if the function reads and outputs to a external file.
