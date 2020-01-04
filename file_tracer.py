@@ -8,11 +8,11 @@ import asciitree
 from asciitree.drawing import BOX_DOUBLE
 
 import decorator
-import dill
+# import dill
 import pyhash
 hasher = pyhash.metro_64()
 # import hasher = pyhash.metro_64()
-# import pickle as dill
+import pickle as dill
 # import dill
 import inspect
 import copy
@@ -242,6 +242,7 @@ class FileTracer(FileObject,object):
 
     def __len__(self):
         return self.byFuncCode.__len__()
+        
     @property
     def size(self):
         return sum(len(x) for x in self.byFuncCode.values())
