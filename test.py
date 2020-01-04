@@ -90,8 +90,8 @@ class BaseCase(unittest2.TestCase,SharedObject):
         tracer.run(main)
         # print(self.)
         # assert tracer.fileSetByFunc)main].output_files == {OutputFile(u'input1.html.count').addTimeStamp()},tracer.fileSetByFunc[main].output_files
-        assert tracer.getFileSetByFunc(main).output_files == {OutputFile(u'input1.html.count').addTimeStamp()},tracer.fileSetByFunc[main].output_files
-        assert tracer.getFileSetByFunc(main).input_files == {InputFile(u'input1.html').addTimeStamp()},tracer.fileSetByFunc[main].input_files
+        assert list(tracer.byFunc[main].values())[0][0].output_files == {OutputFile(u'input1.html.count').addTimeStamp()},tracer.fileSetByFunc[main].output_files
+        assert list(tracer.byFunc[main].values())[0][0].input_files == {InputFile(u'input1.html').addTimeStamp()},tracer.fileSetByFunc[main].input_files
 
         # assert tracer.output_files == {OutputFile(u'input1.html.count').addTimeStamp()},tracer.output_files
         # assert tracer.input_files == {InputFile(u'input1.html').addTimeStamp()},tracer.input_files
@@ -141,16 +141,17 @@ class BaseCase(unittest2.TestCase,SharedObject):
             print (logText)
             self.assertRegex(logText, reg)
         # dill.loads(tracer.fileSetByFunc.values()[0])
-        for k,fileSetDict in tracer.fileSetByFunc.items():
-            print (k)
-            print (fileSetDict.input_files)
-            print (fileSetDict.output_files)
-            for _k , fsd in fileSetDict.items():
-                print ('-'*50)
-                print(repr(_k))
-                # print (dill.loads(_k))
-                print (fsd.input_files)
-                print (fsd.output_files)
+
+        # for k,fileSetDict in tracer.fileSetByFunc.items():
+        #     print (k)
+        #     print (fileSetDict.input_files)
+        #     print (fileSetDict.output_files)
+        #     for _k , fsd in fileSetDict.items():
+        #         print ('-'*50)
+        #         print(repr(_k))
+        #         # print (dill.loads(_k))
+        #         print (fsd.input_files)
+        #         print (fsd.output_files)
 
         # tracer = dill.loads(dill.dumps(tracer))
         # dumpOutput = dumpOutput._origin

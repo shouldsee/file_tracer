@@ -24,7 +24,7 @@ def main():
 if __name__ == '__main__':
 	tracer.run(main)
 	import sys
-	sys.stdout.write(str(tracer.__len__())+'\n')
+	sys.stdout.write(str(tracer.size)+'\n')
 	# print('-'*10)
 	# print(str(tracer.__len__()))
 

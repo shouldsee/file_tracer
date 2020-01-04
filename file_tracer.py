@@ -242,6 +242,9 @@ class FileTracer(FileObject,object):
 
     def __len__(self):
         return self.byFuncCode.__len__()
+    @property
+    def size(self):
+        return sum(len(x) for x in self.byFuncCode.values())
 
     def run(self, func, *a,**kw):
         sys.settrace(self.trace_calls)
@@ -274,15 +277,18 @@ class FileTracer(FileObject,object):
         # self.byAst = dict()
 
     @property
-    def fileSetByFunc(self):
+    def fileSetByFunc(self):        
         return {k:v[0] for k,v in self.byFuncCode.items()}
 
     def getFileSetByFunc(self,func,*a,**kw):
+        # return self.
         return self.byFuncCode[self.makeFunctionInputHash(func,a,kw)][0]
 
     @property
     def byFunc(self):
+        # return {self.funcId(k) for k,v in self.byFuncCode.items()}
         return {self.code2func[k]:v for k,v in self.byFuncCode.items()}
+
     def getFuncCache(self,func):
         return self.byFuncCode[getFuncId(func._origin)]
     # @property
@@ -354,18 +360,23 @@ class FileTracer(FileObject,object):
 
     def makeFunctionInputHash(self,f,a,kw):
         return self._hash(self.makeFunctionInput(f,a,kw))
+    @staticmethod
+    def funcId(f):
+        return getattr(f,'_origin',f).__code__.co_code
 
     def cache(self,func):
         @decorator.decorator
         def dec(f, *a,**kw):
-            _kw = self.makeFunctionInput(f,a,kw)
+            cache = self.byFuncCode.setdefault(
+                self.funcId(f),
+                {})
+            _kw = self.makeFunctionInput( lambda x:x, a,kw)
             _hash = self._hash
             _fileSetKey = _hash(_kw)
 
-            dataByFunc = self.byFuncCode.setdefault(    
+            fileSetData , returnedData = cache.setdefault(    
                 _fileSetKey,
                 (FileSetDict(), FileSetDict()) )
-            fileSetData , returnedData = dataByFunc
 
             "old_file_set contains file touched during last run"
             _f = frame_default(None).f_back
@@ -442,7 +453,7 @@ class FileTracer(FileObject,object):
         gunc = dec(func)
         gunc.__name__ = gunc.__name__ + '_decorated'
         gunc._origin = func
-        self.code2func[getFuncId(func)] = gunc
+        self.code2func[self.funcId(func)] = gunc
         return gunc
 
     @property
