@@ -65,7 +65,8 @@ class BaseCase(unittest2.TestCase,SharedObject):
         def main():
             dumpOutput(InputFile('input1.html'))
         
-        tracer(main)
+        tracer.run(main)
+        # print(self.)
         # assert tracer.fileSetByFunc)main].output_files == {OutputFile(u'input1.html.count').addTimeStamp()},tracer.fileSetByFunc[main].output_files
         assert tracer.getFileSetByFunc(main).output_files == {OutputFile(u'input1.html.count').addTimeStamp()},tracer.fileSetByFunc[main].output_files
         assert tracer.getFileSetByFunc(main).input_files == {InputFile(u'input1.html').addTimeStamp()},tracer.fileSetByFunc[main].input_files

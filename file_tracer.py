@@ -21,6 +21,13 @@ import collections
 import logging
 import warnings
 from _ast_util import ast_proj
+
+try:
+    ## py2
+    unicode
+except:
+    ## py3
+    unicode = str
 # import linecache
 
 def frame_default(frame=None):
@@ -157,7 +164,9 @@ logger.addHandler(handler)
 # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
-FunctionInput = collections.namedtuple('FunctionInput',['args','keywords','argValues','sortedKeywordValues'])
+FunctionInput = collections.namedtuple('FunctionInput',[
+    'func_code_co_code',
+    'args','keywords','argValues','sortedKeywordValues'])
 def getFuncId(func):
     return func.__code__
 class FileTracer(FileObject,object):
@@ -168,8 +177,8 @@ class FileTracer(FileObject,object):
         pass
     class FirstRunWarning(RuntimeWarning):
         pass
-    DEBUG = 0
-    def __init__(self, s = None, frame=None):
+    # DEBUG = 0
+    def __init__(self, s = None, frame=None, DEBUG=0):
         # self.data = s or set()
         # self.all_files = set()
         self.file = os.path.realpath(
@@ -187,6 +196,8 @@ class FileTracer(FileObject,object):
                 # self.__setstate__(d.__dict__)
         except Exception as e:
             warnings.warn(str(e))
+        self.DEBUG = DEBUG
+        self.changed = 0
 
     def __call__(self,*a,**kw):
         return self.run(*a,**kw)
@@ -203,13 +214,24 @@ class FileTracer(FileObject,object):
         sys.settrace(self.trace_calls)
         result = func(*a,**kw)
         sys.settrace(None)
-
-        try:
-            with open(self.file,'wb') as f:
-                dill.dump(self,f)
-        except Exception as e:
-            warnings.warn(str(e))
+        self.dump_to_file()
         return result
+
+    def dump_to_file(self, file=None):
+        if not self.changed:
+            return 
+        if file is None:
+            file = self.file
+        try:
+            if self.DEBUG:
+                print(('[DUMPING]',file,len(self.byFuncCode)))
+                # print(('[DUMPING]',file,len(self)))
+            with open( file,'wb') as f:
+                dill.dump(  self,f)
+        except Exception as e:
+            print('[ERR!!]unable to save:%s'%['[DUMPING]',file,len(self.byFuncCode)])
+            warnings.warn(str(e))
+        # return result
 
     def clear(self, frame=None):
         self.byFuncCode = dict()
@@ -220,9 +242,11 @@ class FileTracer(FileObject,object):
 
     @property
     def fileSetByFunc(self):
-        return {k:v[0] for k,v in self.byFunc.items()}
-    def getFileSetByFunc(self,func):
-        return self.byFuncCode[getFuncId(func._origin)][0]
+        return {k:v[0] for k,v in self.byFuncCode.items()}
+
+    def getFileSetByFunc(self,func,*a,**kw):
+        return self.byFuncCode[self.makeFunctionInputHash(func,a,kw)][0]
+
     @property
     def byFunc(self):
         return {self.code2func[k]:v for k,v in self.byFuncCode.items()}
@@ -254,32 +278,54 @@ class FileTracer(FileObject,object):
     def all_files(self):
         return reduce(lambda x,y: x|y, [x.all_files for x in self.fileSetByFunc.values()], set())
 
+    @staticmethod
+    def _hash(x):
+        return str( hash(x))
+        # _hash = 
+        # if DEBUG:
+        # _hash = lambda x: bytes("%020d"%abs(hash(x))) +b'x'
+        # _hash = lambda x:bytes([hash(x)])
+        # _hash = lambda x:str( hash(x))
+        # _hash = lambda x:
+
+        # def _hash(x):
+        #### pickled object cannot be loaded correctly
+        #     s = dill.dumps(x);
+        #     dill.loads(s)
+        #     # print(len(s.split('\n')))
+        #     # print(collections.Counter(s)['\n'])
+        #     # print('\n' in s[:-1])
+        #     return s
+        # return dill.dumps(x)
+    @staticmethod
+    def makeFunctionInput(f,a,kw):
+        (args, varargs, keywords, defaults) = inspect.getargspec(f)
+        _kw = FunctionInput( 
+            getattr(f,'_origin',f).__code__.co_code,
+            tuple(args or ()),
+            tuple(keywords or ()), 
+            tuple(a), 
+            tuple(sorted(kw.items())))
+        # _kw = tuple(args) + tuple(a) + tuple(keywords  or ())+ tuple(sorted(kw.items()))
+        assert '_FileSet' not in kw,(f,f.__code__)
+        assert '_FileSet' not in args,(f,f.__code__)
+        return _kw
+
+    def makeFunctionInputHash(self,f,a,kw):
+        return self._hash(self.makeFunctionInput(f,a,kw))
+
     def cache(self,func):
         @decorator.decorator
         def dec(f, *a,**kw):
-            (args, varargs, keywords, defaults) = inspect.getargspec(f)
-            _kw = FunctionInput(tuple(args or ()),tuple(keywords or ()), tuple(a), tuple(sorted(kw.items())))
-            # _kw = tuple(args) + tuple(a) + tuple(keywords  or ())+ tuple(sorted(kw.items()))
-            assert '_FileSet' not in kw,(f,f.func_code)
-            assert '_FileSet' not in args,(f,f.func_code)
-            _hash = dill.dumps
-            # if DEBUG:
-            # _hash = lambda x: bytes("%020d"%abs(hash(x))) +b'x'
-            _hash = lambda x:bytes(hash(x))
-            # _hash = lambda x:
-
-            # def _hash(x):
-            #### pickled object cannot be loaded correctly
-            #     s = dill.dumps(x);
-            #     dill.loads(s)
-            #     # print(len(s.split('\n')))
-            #     # print(collections.Counter(s)['\n'])
-            #     # print('\n' in s[:-1])
-            #     return s
-
+            _kw = self.makeFunctionInput(f,a,kw)
+            _hash = self._hash
             _fileSetKey = _hash(_kw)
 
+            dataByFunc = self.byFuncCode.setdefault(    
+                _fileSetKey,
+                (FileSetDict(), FileSetDict()) )
             fileSetData , returnedData = dataByFunc
+
             "old_file_set contains file touched during last run"
             _f = frame_default(None).f_back
             msg = (_f.f_lineno, _f.f_code)            
@@ -297,13 +343,13 @@ class FileTracer(FileObject,object):
 
                 "_oldKey is meaningless if firstRun"
                 # _oldKey = (_fileSetKey, _hash(new_file_set))
-                _oldKey = b''.join((_fileSetKey,_hash(new_file_set)))
+                _oldKey = u''.join((_fileSetKey,_hash(new_file_set)))
                 if self.DEBUG>=2:
                     for x in new_file_set:
                         print(str(x),x.stamp[0],x.__class__,)
 
                 new_file_set.addTimeStamp()
-                _newKey = b''.join((_fileSetKey,_hash(new_file_set)))
+                _newKey = u''.join((_fileSetKey,_hash(new_file_set)))
                 if self.DEBUG>=2:
                     for x in new_file_set:
                         print(str(x),x.stamp[0],x.__class__,)
@@ -315,6 +361,12 @@ class FileTracer(FileObject,object):
                     print("[ACCES_NEW]%r"%_newKey)
 
                 if _oldKey not in returnedData:
+                    print(('OLDKEY',_oldKey,))
+                    print(('new_file_set',new_file_set))
+                     # list(returnedData.keys()))
+                    for k in list(returnedData.keys()):
+                        print(('LIST_KEYS',k))
+                    assert 0, msg
                     self._throw_debug_exception(_oldKey, returnedData)
                     assert 0, msg
 
@@ -337,11 +389,13 @@ class FileTracer(FileObject,object):
                 fileSetData[ _fileSetKey ] = new_file_set
                 #### reuse _fileSetKey avoids mutation in _kw
                 # _newKey = (_fileSetKey, _hash(new_file_set))
-                _newKey = b''.join((_fileSetKey,_hash(new_file_set)))
+                _newKey = u''.join((_fileSetKey,_hash(new_file_set)))
                 returnedData.pop(_oldKey,None) if not firstRun else None
                 returnedData[_newKey] = value 
                 if self.DEBUG>=2:
                     print("[ASSINGING]%r"%_newKey)
+            self.changed = not using_cache
+
 
             return value
 
@@ -349,12 +403,14 @@ class FileTracer(FileObject,object):
         # dataByAst = self.byAst.setdefault(
         #     ast_proj(inspect.getsource(func)),
         #     FileSetDict())
-        dataByFunc = self.byFuncCode.setdefault(
-            getFuncId(func),
-            # .__code__.co_code,
-            # func.func_code,
-            # ast_proj(inspect.getsource(func)),
-            (FileSetDict(), FileSetDict()) )
+
+        # dataByFunc = self.byFuncCode.setdefault(
+        #     getFuncId(func),
+        #     # .__code__.co_code,
+        #     # func.func_code,
+        #     # ast_proj(inspect.getsource(func)),
+        #     (FileSetDict(), FileSetDict()) )
+
         gunc = dec(func)
         gunc.__name__ = gunc.__name__ + '_decorated'
         gunc._origin = func
@@ -377,7 +433,7 @@ class FileTracer(FileObject,object):
     def _throw_debug_exception( _oldKey, data,):
         # print (data.items()
         # for v in dill.loads(_oldKey)['_FileSet']: print(repr(v))
-        for i,(k,v) in enumerate([(_oldKey,None)] + data.items()): 
+        for i,(k,v) in enumerate([(_oldKey,None)] + list(data.items())): 
             print(i,k,v)
             if not isinstance(k,unicode):
                 continue
