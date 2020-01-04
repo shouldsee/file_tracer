@@ -12,8 +12,8 @@ import decorator
 import pyhash
 hasher = pyhash.metro_64()
 # import hasher = pyhash.metro_64()
-import pickle as dill
-# import dill
+# import pickle as dill
+import dill
 import inspect
 import copy
 from collections import defaultdict
@@ -242,7 +242,7 @@ class FileTracer(FileObject,object):
 
     def __len__(self):
         return self.byFuncCode.__len__()
-        
+
     @property
     def size(self):
         return sum(len(x) for x in self.byFuncCode.values())
@@ -254,7 +254,7 @@ class FileTracer(FileObject,object):
         self.dump_to_file()
         return result
 
-    def dump_to_file(self, file=None):
+    def dump_to_file(self, file=None,strict=0):
         if not self.changed:
             return 
         if file is None:
@@ -268,6 +268,9 @@ class FileTracer(FileObject,object):
         except Exception as e:
             print('[ERR!!]unable to save:%s'%['[DUMPING]',file,len(self.byFuncCode)])
             warnings.warn(str(e))
+            if strict:
+                raise e
+            # strict = True
         # return result
 
     def clear(self, frame=None):

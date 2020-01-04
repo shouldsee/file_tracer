@@ -95,6 +95,7 @@ class BaseCase(unittest2.TestCase,SharedObject):
 
         # assert tracer.output_files == {OutputFile(u'input1.html.count').addTimeStamp()},tracer.output_files
         # assert tracer.input_files == {InputFile(u'input1.html').addTimeStamp()},tracer.input_files
+        tracer.dump_to_file(strict=1)
 
         tracer.clear()
         assert main not in tracer.byFunc
