@@ -4,7 +4,7 @@ from distutils.core import setup
 #import setuptools
 import os,glob,sys
 setup(
-	name='FileTracer',
+	name='file_tracer',
 	version='0.0.1',
     packages=['.',],
 	include_package_data=True,
