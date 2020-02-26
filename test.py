@@ -41,19 +41,19 @@ def dumpOutput(x):
 
 import subprocess
 class BaseCase(unittest2.TestCase,SharedObject):
-    def test_cache(self):
-        if PY3:
-            binary = 'python3'
-        else:
-            binary = 'python2'
-        subprocess.check_output(['rm','-f',CDIR/'test_cache.py.pkl'])
-        res0 = subprocess.check_output([binary,CDIR/'test_cache.py']).decode('utf8')
-        res = res0.splitlines()[-1]
-        print(res0)
-        assert res=='3',res0
-        res0 = subprocess.check_output([binary,CDIR/'test_cache.py']).decode('utf8')
-        res = res0.splitlines()[-1]
-        assert res=='3',res0
+    # def test_cache(self):
+    #     if PY3:
+    #         binary = 'python3'
+    #     else:
+    #         binary = 'python2'
+    #     subprocess.check_output(['rm','-f',CDIR/'test_cache.py.pkl'])
+    #     res0 = subprocess.check_output([binary,CDIR/'test_cache.py']).decode('utf8')
+    #     res = res0.splitlines()[-1]
+    #     print('[res0]%s'%res0)
+    #     assert res=='3',res0
+    #     res0 = subprocess.check_output([binary,CDIR/'test_cache.py']).decode('utf8')
+    #     res = res0.splitlines()[-1]
+    #     assert res=='3',res0
 
     def test_init(self):
         # with self.DIR:
@@ -109,21 +109,30 @@ class BaseCase(unittest2.TestCase,SharedObject):
             s = middleStep(x)
             d = collections.Counter(s)
             fn = OutputFile(x+'.count')
-            with open(InputFile('input2.html'),'r') as f:
+            fo = [ InputFile('input2.html'), ]
+            # fo = (InputFile('input2.html'),)
+
+            with open( ('input2.html'),'r') as f:
                 pass
             # with open
             with open(fn,'w') as f:
                 map(f.write,[str(x) for x in d.items()])        
                 # assert 0
+        # @tracer.cache
         def main():            
+            print('[1]')
             dumpOutput(InputFile('input1.html'))
             time.sleep(0.02)
+            print('[2]')
             dumpOutput(InputFile('input1.html'))
             time.sleep(0.02)
             with open('input2.html','w') as f: f.write('test111111111')
             # assert 0
+            print('[3]')
             dumpOutput(InputFile('input1.html'))
+            print('[4]')
             dumpOutput(InputFile('input1.html'))
+            print('[5]')
             dumpOutput(InputFile('input2.html'))
         tracer.DEBUG=0
         with self.assertLogs('file_tracer',level='INFO') as logs:

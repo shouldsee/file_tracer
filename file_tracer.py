@@ -42,6 +42,8 @@ def hash_tree(o):
     '''
     if hasattr(o,'_hash'):
         return o._hash()
+    elif o is None:
+        return None.__hash__()
     elif isinstance(o,dict):
         return hash_tree(tuple(sorted(o.items)))
     elif isinstance(o,(bytes,str)):
@@ -53,7 +55,7 @@ def hash_tree(o):
     elif isinstance(o, numbers.Number):
         return o
     elif isinstance(o, frozenset):
-        return hash_tree(tuple(x for x in o))
+        return hash_tree(tuple(sorted(x for x in o)))
     elif isinstance(o,set):
         return hash_tree(frozenset(o))
     else:
@@ -126,7 +128,8 @@ class File(Path):
             )
     def __init__(self,*a,**kw):
         # self.addTimeStamp()
-        Path.__init__(self,*a,**kw)
+        super(File,self).__init__(*a,**kw)
+        # Path.__init__(self,*a,**kw)
         # self.stat_result = os_stat_safe(self)
         # self.stat_result = _os_stat_result_null
         # self.stat_result = os_stat_safe(self)
@@ -152,9 +155,14 @@ class File(Path):
 
 
 class InputFile(File):
+    def __init__(self,*a,**kw):
+        super(InputFile,self).__init__(*a,**kw)
+
     pass
 
 class OutputFile(File):
+    def __init__(self,*a,**kw):
+        super(OutputFile,self).__init__(*a,**kw)
     pass
 
 class FileObject(object):
@@ -202,7 +210,9 @@ logger.addHandler(handler)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 FunctionInput = collections.namedtuple('FunctionInput',[
-    'func_code_co_code',
+    # 'func_code_co_code',
+    # 'func_code_co_consts',
+
     'args','keywords','argValues','sortedKeywordValues'])
 
 def getFuncId(func):
@@ -226,6 +236,8 @@ class FileTracer(FileObject,object):
         # self.file = inspect.stack()[-1][1]
         # assert 0,self.file
             # frame_default(frame).f_back.f_locals['__file__']+'.pickle')
+        self.filename = frame_default(frame).f_code.co_filename
+        # print(self.filename)
         self.clear(frame_default(frame))
         try:
             with open(self.file,'rb') as f:
@@ -246,11 +258,14 @@ class FileTracer(FileObject,object):
     @property
     def size(self):
         return sum(len(x) for x in self.byFuncCode.values())
-
-    def run(self, func, *a,**kw):
+    def on(self):
         sys.settrace(self.trace_calls)
-        result = func(*a,**kw)
+    def off(self):
         sys.settrace(None)
+    def run(self, func, *a,**kw):
+        self.on()
+        result = func(*a,**kw)
+        self.off()
         self.dump_to_file()
         return result
 
@@ -298,12 +313,29 @@ class FileTracer(FileObject,object):
     # @property
     # def byFuncCode(self):
     #     return {k.__code__:v for k,v in self.byFunc.items()}
+    def trace_lines(self, frame, event, arg):
 
-    def trace_calls(self, frame, event, arg):
+        # co = frame.f_code
+        # func_name = co.co_name
+        # line_no = frame.f_lineno
+        # filename = co.co_filename
+        # if co.co_name == '__init__':
+        #     print(event,line_no,filename,co,arg)
+
+        if event != 'return':
+            return        
+        co = frame.f_code
+        func_name = co.co_name
+        line_no = frame.f_lineno
+        filename = co.co_filename
+        # print(event,line_no,filename,co,arg)
+
         frame0 = frame
         # frames = []
         sets = []
         while True:
+            # if frame.f_code not in self.byFuncCode:
+            #     break
             if frame is None:
                 break
             s = self.lastCall.get(frame.f_code,None)
@@ -316,6 +348,21 @@ class FileTracer(FileObject,object):
         for x in frame0.f_locals.values():
             if isinstance(x,File):
                 [s.add(x) for s in sets]
+                # if co.co_name not in ['addTimeStamp','hash_tree',]:
+                #     # print((co.co_name,event,line_no,filename))
+                #     # print((event,line_no,filename,co,arg))
+                #     print(('aa',x,))                
+    def trace_calls(self, frame, event, arg):
+        # if frame.f_code not in self.byFuncCode:
+        #     return
+        if event != 'call':
+            return
+        else:            
+            # if frame.f_code.co_filename not in [self.filename, __file__]:
+            #     return
+            # else:
+            return self.trace_lines
+
 
     @property
     def all_files(self):
@@ -347,10 +394,10 @@ class FileTracer(FileObject,object):
     def makeFunctionInput(f,a,kw):
         # print('kw',kw,hash(tuple(sorted(kw.items()))))
         (args, varargs, keywords, defaults) = inspect.getargspec(f)
-        code = getattr(f,'_origin',f).__code__.co_code
+        # code = getattr(f,'_origin',f).__code__.co_code
         # print((hash(code),code,))
+        _code = getattr(f,'_origin',f).__code__
         _kw = FunctionInput( 
-            getattr(f,'_origin',f).__code__.co_code,
             tuple(args or ()),
             tuple(keywords or ()), 
             tuple(a), 
@@ -366,7 +413,8 @@ class FileTracer(FileObject,object):
         return self._hash(self.makeFunctionInput(f,a,kw))
     @staticmethod
     def funcId(f):
-        return getattr(f,'_origin',f).__code__.co_code
+        _code = getattr(f,'_origin',f).__code__
+        return ( _code.co_code, _code.co_consts)
 
     def cache(self,func):
         @decorator.decorator
@@ -396,7 +444,7 @@ class FileTracer(FileObject,object):
             else:
                 firstRun = False
                 new_file_set = fileSetData[_fileSetKey]
-
+                "This access is found in cache and returned a fileset"
                 "_oldKey is meaningless if firstRun"
                 # _oldKey = (_fileSetKey, _hash(new_file_set))
                 _oldKey = u':'.join((_fileSetKey,_hash(new_file_set)))
@@ -449,7 +497,7 @@ class FileTracer(FileObject,object):
                 returnedData.pop(_oldKey,None) if not firstRun else None
                 returnedData[_newKey] = value 
                 if self.DEBUG>=2:
-                    print("[ASSIGNING]:---\n%s\n---"%_newKey)
+                    print("[ASSIGNING]:---\n%s\n---\n%s\n---"%(_newKey,value))
             self.changed = not using_cache
             return value
 

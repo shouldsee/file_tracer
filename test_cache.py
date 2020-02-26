@@ -11,9 +11,23 @@ class SharedObject(object):
 @tracer.cache
 def job1(num):
 	print('RUNNING',job1.__name__, num)
-	with open(OutputFile( SharedObject.DIR /'%s.txt.temp'%num),'w') as f:
+	with open( OutputFile( SharedObject.DIR /'%s.txt.temp'%num),'w') as f:
 		f.write('a'*num)
 	return num
+
+# 6080328209477545137,
+# 5896892666927026437,
+# -1130546980651876245,
+# 3527539,
+# 3430019387558,
+# 3527539:3527539
+
+# 6080328209477545137,
+# 5871464517938808325,
+# -1130546980651876245,
+# 3527539,
+# 3430019387558,
+# 3527539:3527539
 
 
 def main():
