@@ -153,11 +153,14 @@ class File(Path):
         return (self.__class__ == other.__class__) and str(self)==str(other)
         # hash(self)==hash(other)
 
+class TempFile(File):
+    def __init__(self,*a,**kw):
+        super(InputFile,self).__init__(*a,**kw)
+    pass
 
 class InputFile(File):
     def __init__(self,*a,**kw):
         super(InputFile,self).__init__(*a,**kw)
-
     pass
 
 class OutputFile(File):
@@ -346,7 +349,7 @@ class FileTracer(FileObject,object):
             return
         # print(path.__file__)
         for x in frame0.f_locals.values():
-            if isinstance(x,File):
+            if isinstance(x, (InputFile,OutputFile) ):
                 [s.add(x) for s in sets]
                 # if co.co_name not in ['addTimeStamp','hash_tree',]:
                 #     # print((co.co_name,event,line_no,filename))
