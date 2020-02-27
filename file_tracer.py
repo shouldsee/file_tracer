@@ -8,6 +8,7 @@ import asciitree
 from asciitree.drawing import BOX_DOUBLE
 
 import decorator
+# if not hasattr(__builtins__, "basestring"): basestring = (str, bytes)
 # import dill
 import smhasher
 # import pyhash
@@ -34,6 +35,7 @@ try:
 except:
     ## py3
     unicode = str
+    basestring = (str, bytes)
 def hash_str(s):
     return smhasher.murmur3_x86_64(s)
 def hash_tree(o):
