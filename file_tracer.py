@@ -157,7 +157,7 @@ class File(Path):
 
 class TempFile(File):
     def __init__(self,*a,**kw):
-        super(InputFile,self).__init__(*a,**kw)
+        super(TempFile,self).__init__(*a,**kw)
     pass
 
 class InputFile(File):
