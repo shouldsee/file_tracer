@@ -4,7 +4,7 @@ decorator
 path.py
 asciitree
 smhasher@https://github.com/phensley/python-smhasher/tarball/d71532c/==0.150.1
-pyhash
+#pyhash
 dill
 
 #filelock
