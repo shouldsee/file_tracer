@@ -9,8 +9,10 @@ from asciitree.drawing import BOX_DOUBLE
 
 import decorator
 # import dill
-import pyhash
-hasher = pyhash.metro_64()
+import smhasher
+# import pyhash
+# hasher = pyhash.metro_64()
+
 # import hasher = pyhash.metro_64()
 # import pickle as dill
 import dill
@@ -32,8 +34,8 @@ try:
 except:
     ## py3
     unicode = str
-
-
+def hash_str(s):
+    return smhasher.murmur3_x86_64(s)
 def hash_tree(o):
     '''
     PY3 turns on hash randomisation by default. 
@@ -47,7 +49,7 @@ def hash_tree(o):
     elif isinstance(o,dict):
         return hash_tree(tuple(sorted(o.items)))
     elif isinstance(o,(bytes,str)):
-        return hasher(o)
+        return hash_str(o)
     elif isinstance(o, list):
         return hash_tree(tuple(o))
     elif isinstance(o, tuple):
